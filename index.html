@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1DB954">
+    <title>Nexus Premium</title>
+    <style>
+        :root {
+            --primary: #1DB954;
+            --bg-dark: #090909;
+            --accent: rgba(29, 185, 84, 0.3);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: background 0.8s ease;
+        }
+
+        /* DISEÑO PREMIUM */
+        header {
+            padding: 20px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            text-align: center;
+            color: var(--primary);
+        }
+
+        .main-display {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .art-card {
+            width: 280px;
+            height: 280px;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+            background: #222;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .playing .art-card { transform: scale(1.05); }
+
+        .art-card img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* VISUALIZADOR DE ONDAS */
+        #visualizer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 3px;
+            padding-bottom: 5px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.5));
+        }
+
+        .bar {
+            width: 4px;
+            background: var(--primary);
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+
+        .track-info { text-align: center; margin-top: 30px; width: 100%; }
+        .track-info h2 { font-size: 1.6rem; margin: 0; }
+        .track-info p { color: #b3b3b3; margin: 10px 0; }
+
+        /* CONTROLES ESTILO YOUTUBE MUSIC */
+        .player-controls { padding: 30px; }
+        
+        .progress-container { width: 100%; margin-bottom: 20px; }
+        
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 350px;
+            margin: 0 auto;
+        }
+
+        .btn-circle {
+            width: 70px;
+            height: 70px;
+            background: white;
+            color: black;
+            border-radius: 50%;
+            border: none;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn-small { background: none; border: none; color: white; font-size: 1.5rem; opacity: 0.8; }
+
+        /* OFFLINE INDICATOR */
+        .offline-badge {
+            font-size: 10px;
+            background: var(--primary);
+            color: black;
+            padding: 2px 8px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        #file-input { display: none; }
+        .upload-btn {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <header>NEXUS PREMIUM</header>
+
+    <div class="main-display" id="display">
+        <div class="art-card">
+            <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=500" id="cover">
+            <div id="visualizer">
+                <!-- Barras generadas por JS -->
+            </div>
+        </div>
+        
+        <div class="track-info">
+            <h2 id="title">Listo para sonar</h2>
+            <p id="artist">Carga un archivo mp3</p>
+            <div id="offline-status" class="offline-badge">MODO OFFLINE ACTIVO</div>
+            <br>
+            <label for="file-input" class="upload-btn">📁 Seleccionar Música</label>
+            <input type="file" id="file-input" accept="audio/*">
+        </div>
+    </div>
+
+    <div class="player-controls">
+        <div class="progress-container">
+            <input type="range" id="seek" value="0">
+        </div>
+        <div class="buttons">
+            <button class="btn-small">🔀</button>
+            <button class="btn-small">⏮</button>
+            <button class="btn-circle" id="play-pause">▶</button>
+            <button class="btn-small">⏭</button>
+            <button class="btn-small">🔁</button>
+        </div>
+    </div>
+
+    <audio id="audio"></audio>
+
+    <script>
+        const audio = document.getElementById('audio');
+        const playBtn = document.getElementById('play-pause');
+        const fileIn = document.getElementById('file-input');
+        const seek = document.getElementById('seek');
+        const display = document.getElementById('display');
+        const visualizer = document.getElementById('visualizer');
+
+        let isPlaying = false;
+
+        // Crear barras del visualizador
+        for(let i=0; i<15; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'bar';
+            bar.style.height = '5px';
+            visualizer.appendChild(bar);
+        }
+
+        // 1. Carga de Archivos e Interfaz Dinámica
+        fileIn.onchange = (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            
+            audio.src = URL.createObjectURL(file);
+            document.getElementById('title').innerText = file.name.replace(/\.[^/.]+$/, "");
+            document.getElementById('artist').innerText = "Tu Biblioteca";
+            
+            // Cambiar color de fondo aleatoriamente para simular color dinámico
+            const colors = ['#1e3a8a', '#581c87', '#701a75', '#4c1d95', '#164e63'];
+            document.body.style.background = `radial-gradient(circle at top, ${colors[Math.floor(Math.random()*colors.length)]} 0%, #090909 100%)`;
+            
+            togglePlay(true);
+        };
+
+        // 2. Control de Reproducción y Media Session
+        function togglePlay(forcePlay = false) {
+            if(!audio.src) return;
+
+            if (isPlaying && !forcePlay) {
+                audio.pause();
+                playBtn.innerText = "▶";
+                isPlaying = false;
+                display.classList.remove('playing');
+            } else {
+                audio.play();
+                playBtn.innerText = "⏸";
+                isPlaying = true;
+                display.classList.add('playing');
+                setupMediaSession();
+                animateVisualizer();
+            }
+        }
+
+        playBtn.onclick = () => togglePlay();
+
+        // 3. Visualizador Animado (Simulado para rendimiento)
+        function animateVisualizer() {
+            if(!isPlaying) return;
+            const bars = document.querySelectorAll('.bar');
+            bars.forEach(bar => {
+                const height = Math.random() * 35 + 5;
+                bar.style.height = height + 'px';
+            });
+            setTimeout(animateVisualizer, 150);
+        }
+
+        // 4. Progreso
+        audio.ontimeupdate = () => {
+            seek.value = (audio.currentTime / audio.duration) * 100 || 0;
+        };
+
+        seek.oninput = () => {
+            audio.currentTime = (seek.value / 100) * audio.duration;
+        };
+
+        // 5. Configuración de Controles de Android (Lockscreen)
+        function setupMediaSession() {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: document.getElementById('title').innerText,
+                    artist: 'Nexus Premium',
+                    artwork: [{ src: document.getElementById('cover').src, sizes: '512x512', type: 'image/jpeg' }]
+                });
+
+                navigator.mediaSession.setActionHandler('play', () => togglePlay());
+                navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+            }
+        }
+
+        // 6. Registro de Service Worker (OFFLINE)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Creamos un blob para el sw.js y así tenerlo todo en uno si es necesario, 
+                // pero lo ideal es tener el archivo sw.js aparte.
+                navigator.serviceWorker.register('./sw.js').then(() => {
+                    document.getElementById('offline-status').style.display = 'inline-block';
+                }).catch(err => console.log("Modo offline requiere servidor https o localhost"));
+            });
+        }
+    </script>
+</body>
+</html>
